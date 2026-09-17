@@ -1,0 +1,81 @@
+name: shopsphere
+
+# Local infrastructure foundation for ShopSphere + AI AMS (P1-T03).
+#
+# This file provisions infrastructure dependencies only: PostgreSQL, Redis,
+# and RabbitMQ. It does not run any ShopSphere or AI AMS application code.
+# Future application/service containers will join `shopsphere-network` and
+# connect to these services by their Docker service name (see
+# docs/architecture/local-development.md).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shopsphere-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shopsphere}
+      POSTGRES_USER: ${POSTGRES_USER:-shopsphere}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shopsphere} -d ${POSTGRES_DB:-shopsphere}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopsphere-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: shopsphere-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-shopsphere}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change-me}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  shopsphere-network:
+    name: shopsphere-network
+
+volumes:
+  postgres-data:
+    name: shopsphere-postgres-data
+  redis-data:
+    name: shopsphere-redis-data
+  rabbitmq-data:
+    name: shopsphere-rabbitmq-data
