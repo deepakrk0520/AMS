@@ -1,0 +1,12 @@
+-- V1: Initial ShopSphere database foundation.
+--
+-- This migration intentionally introduces no domain schema (customer,
+-- product, category, cart, order, payment, shipment, inventory, etc.).
+-- Its sole purpose is to establish the Flyway migration foundation and
+-- confirm that the application can connect to, and manage, its own
+-- PostgreSQL schema history.
+--
+-- Domain-specific schema is introduced by later, domain-scoped tickets
+-- via subsequent versioned migrations (V2__..., V3__..., etc.). Once
+-- applied, this migration must not be modified — schema changes always
+-- take the form of a new migration file.

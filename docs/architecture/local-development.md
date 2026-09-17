@@ -1,10 +1,12 @@
 # Local Development Infrastructure
 
-**Status: infrastructure foundation (P1-T03).** This document explains how
-to run ShopSphere's local infrastructure dependencies (PostgreSQL, Redis,
-RabbitMQ) via Docker Compose. **No application services (ShopSphere
-backend/frontend, AI AMS) are started by this Compose file** — it provides
-infrastructure only, for use by future implementation tickets.
+**Status: infrastructure foundation (P1-T03, P1-T04).** This document
+explains how to run ShopSphere's local infrastructure dependencies
+(PostgreSQL, Redis, RabbitMQ) via Docker Compose, and how the
+`shopsphere-api` backend connects to and manages its PostgreSQL schema via
+Flyway. **No business functionality (REST APIs, domain entities, Redis
+caching, RabbitMQ messaging, AI AMS) is implemented here** — this covers
+infrastructure and the database migration foundation only.
 
 ## Prerequisites
 
@@ -108,8 +110,66 @@ directly on the developer's machine).
 ## Scope of this infrastructure
 
 This Compose setup provisions PostgreSQL, Redis, and RabbitMQ as bare
-infrastructure only. It does not create any database schema, RabbitMQ
-exchanges/queues/bindings, or Redis usage patterns — those are defined by
-the ShopSphere and AI AMS services in later implementation tickets, per
+infrastructure only. It does not create any RabbitMQ exchanges/queues/
+bindings or Redis usage patterns — those are defined by the ShopSphere and
+AI AMS services in later implementation tickets, per
 [`docs/architecture/ai-ams-architecture.md`](ai-ams-architecture.md) and
-[ADR-002](../adr/ADR-002-event-driven-architecture.md).
+[ADR-002](../adr/ADR-002-event-driven-architecture.md). The PostgreSQL
+database schema itself is versioned and managed by `shopsphere-api` via
+Flyway, described below.
+
+## shopsphere-api database connection (P1-T04)
+
+`backend/shopsphere-api` connects to the PostgreSQL container using
+environment-driven configuration (`backend/shopsphere-api/src/main/resources/application.properties`):
+
+| Variable | Purpose | Local default |
+|---|---|---|
+| `DB_HOST` | Database host | `localhost` (host machine) / `postgres` (once containerized) |
+| `DB_PORT` | Database port | `5432` |
+| `DB_NAME` | Database name | `shopsphere` |
+| `DB_USERNAME` | Database user | `shopsphere` |
+| `DB_PASSWORD` | Database password | `change-me` |
+
+These are distinct from the `POSTGRES_*` variables above: `POSTGRES_*`
+configure the container itself (via `docker-compose.yml`), while `DB_*`
+configure the application's JDBC connection to that container. No
+credentials are hardcoded in Java code or configuration files.
+
+To run the API against the Dockerized PostgreSQL from the host machine:
+
+```bash
+cd backend/shopsphere-api
+DB_HOST=localhost DB_PORT=5432 DB_NAME=shopsphere DB_USERNAME=shopsphere DB_PASSWORD=change-me \
+  ./mvnw spring-boot:run
+```
+
+(Or export the same variables from your `.env`.)
+
+### Flyway migrations
+
+- **Location:** `backend/shopsphere-api/src/main/resources/db/migration/`
+- **Naming convention:** `V<version>__<description>.sql` (e.g.
+  `V1__initial_schema.sql`, `V2__add_products_table.sql`). Version numbers
+  are sequential and never reused.
+- **Execution:** Flyway runs automatically on application startup, before
+  the application context finishes initializing. Pending migrations are
+  applied in version order; already-applied migrations are skipped.
+- **Immutability:** once a migration has been applied (recorded in
+  `flyway_schema_history`), its file must never be modified. A schema
+  change is always introduced as a new migration (`V2__...`, `V3__...`),
+  never by editing an existing one — Flyway detects checksum mismatches on
+  modified, already-applied migrations and will fail startup.
+
+### Verifying migration status
+
+Check applied migrations directly in PostgreSQL:
+
+```bash
+docker exec shopsphere-postgres psql -U shopsphere -d shopsphere \
+  -c "SELECT version, description, success FROM flyway_schema_history;"
+```
+
+Or check the application startup logs for lines from
+`org.flywaydb.core...`, which report the current schema version and any
+migrations applied on that run.
