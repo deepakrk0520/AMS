@@ -173,3 +173,27 @@ docker exec shopsphere-postgres psql -U shopsphere -d shopsphere \
 Or check the application startup logs for lines from
 `org.flywaydb.core...`, which report the current schema version and any
 migrations applied on that run.
+
+## shopsphere-api application (P1-T05)
+
+`backend/shopsphere-api` is a Spring Boot 3.5 / Java 21 application (Web,
+Actuator, Data JPA, PostgreSQL, Flyway). It requires the PostgreSQL
+container (`docker compose up -d`) and the `DB_*` variables above. Tests
+include a context-startup test that connects to that PostgreSQL.
+
+```bash
+cd backend/shopsphere-api
+./mvnw clean verify          # build + tests
+./mvnw spring-boot:run       # start the application
+```
+
+| Setting | Value |
+|---|---|
+| Port | `8080` (override with `SERVER_PORT`) |
+| API health | `GET http://localhost:8080/api/v1/health` -> `{"status":"UP"}` |
+| Actuator health | `GET http://localhost:8080/actuator/health` (only `health` is exposed) |
+
+Errors from the API use one JSON shape: `timestamp`, `status`, `error`,
+`message`, `path`. Hibernate runs in `validate` mode; Flyway owns the
+schema. No security, caching, messaging or business functionality is
+implemented yet.

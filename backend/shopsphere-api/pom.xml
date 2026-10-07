@@ -22,16 +22,22 @@
   </properties>
 
   <dependencies>
-    <!-- Core Spring Boot runtime, sufficient to start an application context. -->
+    <!-- REST API (Spring MVC). -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter</artifactId>
+      <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- DataSource / JDBC support for PostgreSQL connectivity. -->
+    <!-- Operational endpoints; only /actuator/health is exposed. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-jdbc</artifactId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Persistence foundation (JPA + DataSource/JDBC for PostgreSQL). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
 
     <!-- PostgreSQL JDBC driver. -->
