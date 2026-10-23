@@ -95,10 +95,12 @@ agents reason over (see
 [`ai-ams-architecture.md`](ai-ams-architecture.md)). Observability
 tooling and instrumentation are not implemented as part of this ticket.
 
-## 4. Security standards (FUTURE)
+## 4. Security standards
 
-**Not implemented. These are target principles for later tickets. This
-ticket does not implement Spring Security, JWT, or any auth mechanism.**
+**Implemented in P1-T06:** stateless JWT authentication, `CUSTOMER`/`ADMIN`
+roles, and deny-by-default authorization (see "Authentication foundation"
+below). **Still future:** the remaining principles in this list (secret
+manager, service-to-service auth, audit logging, AI action authorization).
 
 - **Authentication** — verifying identity of a caller (user, service, or
   agent) before granting access.
@@ -135,6 +137,47 @@ ticket does not implement Spring Security, JWT, or any auth mechanism.**
 
 These roles are conceptual; no authentication/authorization mechanism is
 implemented by this ticket.
+
+### Authentication foundation (P1-T06)
+
+- **Stateless**: no sessions, no cookies, CSRF disabled; credentials travel
+  only in `Authorization: Bearer <jwt>`.
+- **Public**: `GET /api/v1/health`, `/actuator/health`, `POST /api/v1/auth/login`.
+  Everything else requires a valid token; `/api/v1/admin/**` requires `ADMIN`.
+  Only the Actuator health endpoint is exposed.
+- **Tokens**: HS256, claims `iss`, `sub` (email), `iat`, `exp`, `roles`.
+  Signature, expiry and issuer are validated. 401 = missing/invalid/expired
+  token; 403 = authenticated but wrong role. Both use the common `ApiError` body.
+- **Users**: table `users` (Flyway `V2`), BCrypt `password_hash`, role
+  `CUSTOMER` or `ADMIN`. There is deliberately no registration endpoint yet.
+- **CORS**: deny by default; allow origins via `CORS_ALLOWED_ORIGINS`.
+
+Configuration (environment, see `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `JWT_SECRET` | **Required**, at least 32 chars; the app will not start without it. `openssl rand -base64 48` |
+| `JWT_ISSUER` | Expected issuer (default `shopsphere-api`) |
+| `JWT_EXPIRATION` | Token lifetime (default `15m`) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins (default none) |
+
+Trying it locally (PostgreSQL running, `JWT_SECRET` exported):
+
+```bash
+# create a dev user (pgcrypto's bcrypt output is accepted by Spring's BCryptPasswordEncoder)
+docker exec shopsphere-postgres psql -U shopsphere -d shopsphere \
+  -c "CREATE EXTENSION IF NOT EXISTS pgcrypto" \
+  -c "INSERT INTO users(email,password_hash,role) VALUES ('admin@example.com', crypt('change-me-now', gen_salt('bf')), 'ADMIN')"
+
+TOKEN=$(curl -s -XPOST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"change-me-now"}' | jq -r .accessToken)
+curl -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/auth/me      # any authenticated user
+curl -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/admin/ping   # ADMIN only
+```
+
+Automated tests (`SecurityIntegrationTest`) need no external services:
+`./mvnw verify` from `backend/shopsphere-api` (only `ShopsphereApiApplicationTests`
+needs the local PostgreSQL).
 
 ## 5. API design principles
 

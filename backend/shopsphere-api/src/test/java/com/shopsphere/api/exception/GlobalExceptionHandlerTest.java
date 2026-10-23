@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(GlobalExceptionHandlerTest.ThrowingController.class)
+@AutoConfigureMockMvc(addFilters = false) // exercises error mapping only; security is covered in SecurityIntegrationTest
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ThrowingController.class})
 class GlobalExceptionHandlerTest {
 

@@ -16,6 +16,8 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.shopsphere.api.auth.InvalidCredentialsException;
+
 /**
  * Maps Spring MVC exceptions (400, 404, 405, ...) and any unexpected exception
  * to the common {@link ApiError} body.
@@ -30,6 +32,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode statusCode, WebRequest request) {
         HttpStatus status = HttpStatus.valueOf(statusCode.value());
         return ResponseEntity.status(status).headers(headers).body(toApiError(status, ex.getMessage(), request));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException ex,
+            HttpServletRequest request) {
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+        return ResponseEntity.status(status)
+                .body(new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), ex.getMessage(),
+                        request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
