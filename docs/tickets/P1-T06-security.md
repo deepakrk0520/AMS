@@ -1,7 +1,7 @@
 # P1-T06 - Security
 
 **Commit:** `b0ada66` - `feat: establish spring security and jwt authentication`
-(registration, user names and `/admin/test` were added afterwards; see the
+(registration, user names and `/admin/test` were added in `146e578`; see the
 README for the follow-up commit)
 
 ## Delivered
