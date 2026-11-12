@@ -21,7 +21,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
  * The "demo" cache TTL is shortened to 2s to exercise expiry.
  */
 @SpringBootTest(classes = { CacheConfig.class, CacheDemoService.class }, properties = {
-        "spring.data.redis.host=localhost",
+        "spring.data.redis.host=${SPRING_DATA_REDIS_HOST:localhost}", // CI points this at its Redis container
         "spring.data.redis.port=${REDIS_PORT:6379}",
         "app.cache.default-ttl=10m",
         "app.cache.ttls.demo=2s" })

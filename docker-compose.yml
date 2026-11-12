@@ -166,6 +166,36 @@ services:
       retries: 5
       start_period: 20s
 
+  # Local Jenkins CI (P1-T10). Start with: docker compose --profile ci up -d --build jenkins
+  # Mounts the host Docker socket so pipelines can build images and start test
+  # containers. That is root-equivalent access to the host Docker: local development only.
+  jenkins:
+    profiles: ["ci"]
+    build:
+      context: ./infrastructure/jenkins
+    image: shopsphere-jenkins:local
+    container_name: shopsphere-jenkins
+    restart: unless-stopped
+    # Group that owns the Docker socket inside the Docker VM/host (Docker Desktop: 0).
+    # On Linux find it with: stat -c %g /var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-0}"
+    environment:
+      CI_NETWORK: shopsphere-network
+    ports:
+      - "${JENKINS_PORT:-8081}:8080"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8080/login"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
 networks:
   shopsphere-network:
     name: shopsphere-network
@@ -183,3 +213,5 @@ volumes:
     name: shopsphere-grafana-data
   api-logs:
     name: shopsphere-api-logs
+  jenkins-home:
+    name: shopsphere-jenkins-home

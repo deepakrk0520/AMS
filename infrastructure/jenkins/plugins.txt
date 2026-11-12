@@ -1,0 +1,12 @@
+# Plugins for the ShopSphere pipeline. Latest compatible versions are resolved
+# at image build time; pin them (name:version) for reproducible builds.
+workflow-aggregator
+pipeline-stage-view
+git
+github
+github-branch-source
+junit
+credentials
+credentials-binding
+timestamper
+ws-cleanup
