@@ -111,7 +111,7 @@ directly on the developer's machine).
 
 This Compose setup provisions PostgreSQL, Redis, and RabbitMQ as bare
 infrastructure only. It does not create any RabbitMQ exchanges/queues/
-bindings or Redis usage patterns — those are defined by the ShopSphere and
+bindings — those are defined by the ShopSphere and
 AI AMS services in later implementation tickets, per
 [`docs/architecture/ai-ams-architecture.md`](ai-ams-architecture.md) and
 [ADR-002](../adr/ADR-002-event-driven-architecture.md). The PostgreSQL
@@ -197,3 +197,7 @@ Errors from the API use one JSON shape: `timestamp`, `status`, `error`,
 `message`, `path`. Hibernate runs in `validate` mode; Flyway owns the
 schema. No security, caching, messaging or business functionality is
 implemented yet.
+
+## Redis from shopsphere-api
+
+The backend uses this Redis as a cache (P1-T08). See [redis-caching.md](redis-caching.md).

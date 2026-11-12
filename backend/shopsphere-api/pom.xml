@@ -34,6 +34,16 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- Redis client (Lettuce) and Spring Cache abstraction (P1-T08). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+
     <!-- Bean Validation (request DTOs, validated configuration properties). -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
