@@ -14,6 +14,6 @@ to verify it, and what was deliberately left out.
 | P1-T07 | React Frontend Foundation | `ea28d71` | [P1-T07](P1-T07-react-frontend.md) |
 | P1-T08 | Redis Integration | `f8585d2` | [P1-T08](P1-T08-redis-integration.md) |
 | P1-T09 | Observability | `4c93372` | [P1-T09](P1-T09-observability.md) |
-| P1-T10 | Jenkins CI Pipeline | uncommitted | [P1-T10](P1-T10-jenkins-ci.md) |
+| P1-T10 | Jenkins CI Pipeline | `e26f947` | [P1-T10](P1-T10-jenkins-ci.md) |
 
 Phase 1 complete.
