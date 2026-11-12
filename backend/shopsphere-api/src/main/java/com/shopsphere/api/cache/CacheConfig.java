@@ -49,6 +49,7 @@ public class CacheConfig implements CachingConfigurer {
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaults)
+                .enableStatistics() // cache hit/miss metrics (cache.gets, ...)
                 .withInitialCacheConfigurations(perCache)
                 .build();
     }

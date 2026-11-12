@@ -201,3 +201,7 @@ implemented yet.
 ## Redis from shopsphere-api
 
 The backend uses this Redis as a cache (P1-T08). See [redis-caching.md](redis-caching.md).
+
+## Monitoring and the API container
+
+Prometheus and Grafana start with the normal `docker compose up -d`. The API container is opt-in (`--profile app`). See [observability.md](observability.md).

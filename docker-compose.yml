@@ -2,11 +2,13 @@ name: shopsphere
 
 # Local infrastructure foundation for ShopSphere + AI AMS (P1-T03).
 #
-# This file provisions infrastructure dependencies only: PostgreSQL, Redis,
-# and RabbitMQ. It does not run any ShopSphere or AI AMS application code.
-# Future application/service containers will join `shopsphere-network` and
-# connect to these services by their Docker service name (see
-# docs/architecture/local-development.md).
+# This file provisions infrastructure dependencies (PostgreSQL, Redis,
+# RabbitMQ) plus monitoring (Prometheus, Grafana; P1-T09). The ShopSphere API
+# container (`api`) is optional and only starts with `--profile app`, so the
+# plain `docker compose up -d` keeps starting infrastructure and monitoring
+# only. Containers join `shopsphere-network` and reach each other by service
+# name (see docs/architecture/local-development.md and
+# docs/architecture/observability.md).
 
 services:
   postgres:
@@ -68,6 +70,102 @@ services:
       retries: 5
       start_period: 20s
 
+  # ShopSphere backend (P1-T09). Start with: docker compose --profile app up -d --build
+  api:
+    profiles: ["app"]
+    build:
+      context: ./backend/shopsphere-api
+    image: shopsphere-api:local
+    container_name: shopsphere-api
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-shopsphere}
+      DB_USERNAME: ${POSTGRES_USER:-shopsphere}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # No defaults for secrets: the API refuses to start without JWT_SECRET,
+      # and metrics stay locked (401) without ACTUATOR_PASSWORD.
+      JWT_SECRET: ${JWT_SECRET:-}
+      ACTUATOR_PASSWORD: ${ACTUATOR_PASSWORD:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      - api-logs:/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: shopsphere-prometheus
+    restart: unless-stopped
+    environment:
+      ACTUATOR_PASSWORD: ${ACTUATOR_PASSWORD:-}
+    # The scrape password is written to a file at start (Prometheus does not expand env vars).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        printf '%s' "$$ACTUATOR_PASSWORD" > /tmp/actuator-password &&
+        exec /bin/prometheus
+        --config.file=/etc/prometheus/prometheus.yml
+        --storage.tsdb.path=/prometheus
+        --storage.tsdb.retention.time=15d
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: shopsphere-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - shopsphere-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 networks:
   shopsphere-network:
     name: shopsphere-network
@@ -79,3 +177,9 @@ volumes:
     name: shopsphere-redis-data
   rabbitmq-data:
     name: shopsphere-rabbitmq-data
+  prometheus-data:
+    name: shopsphere-prometheus-data
+  grafana-data:
+    name: shopsphere-grafana-data
+  api-logs:
+    name: shopsphere-api-logs

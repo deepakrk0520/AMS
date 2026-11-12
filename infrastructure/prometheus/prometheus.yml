@@ -1,0 +1,23 @@
+# Prometheus configuration for local ShopSphere monitoring (P1-T09).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: shopsphere-api
+    metrics_path: /actuator/prometheus
+    # Credentials: user from ACTUATOR_USERNAME (fixed to "prometheus" here), password
+    # written to /tmp/actuator-password at container start from ACTUATOR_PASSWORD.
+    basic_auth:
+      username: prometheus
+      password_file: /tmp/actuator-password
+    static_configs:
+      # "api" is the Compose service name; reachable only when the app runs
+      # in Compose (docker compose --profile app up -d).
+      - targets: ["api:8080"]
+        labels:
+          application: shopsphere-api
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

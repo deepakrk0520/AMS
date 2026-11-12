@@ -40,7 +40,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 /**
  * Stateless, bearer-token security for the API.
  *
- * <p>Public: {@code GET /api/v1/health}, {@code /actuator/health/**},
+ * <p>Public: {@code GET /api/v1/health}, {@code /actuator/health/**}, {@code /actuator/info},
  * {@code POST /api/v1/auth/login}, {@code POST /api/v1/auth/register}. {@code /api/v1/admin/**} requires
  * {@code ROLE_ADMIN}. Everything else requires a valid JWT.
  *
@@ -64,7 +64,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
