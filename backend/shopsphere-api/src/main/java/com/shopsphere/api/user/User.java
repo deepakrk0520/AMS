@@ -22,6 +22,12 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -41,7 +47,9 @@ public class User {
     protected User() {
     }
 
-    public User(String email, String passwordHash, Role role) {
+    public User(String firstName, String lastName, String email, String passwordHash, Role role) {
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.email = email.toLowerCase();
         this.passwordHash = passwordHash;
         this.role = role;
@@ -49,6 +57,14 @@ public class User {
 
     public UUID getId() {
         return id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
     }
 
     public String getEmail() {

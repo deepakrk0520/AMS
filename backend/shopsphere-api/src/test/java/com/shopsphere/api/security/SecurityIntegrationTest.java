@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.shopsphere.api.auth.AuthController;
+import com.shopsphere.api.auth.AuthService;
 import com.shopsphere.api.controller.HealthController;
 import com.shopsphere.api.exception.GlobalExceptionHandler;
 import com.shopsphere.api.user.DatabaseUserDetailsService;
@@ -41,7 +42,7 @@ import com.shopsphere.api.user.User;
 import com.shopsphere.api.user.UserRepository;
 
 @WebMvcTest({ HealthController.class, AuthController.class })
-@Import({ SecurityConfig.class, AuthenticationManagerConfig.class, SecurityErrorHandlers.class, JwtService.class, DatabaseUserDetailsService.class,
+@Import({ SecurityConfig.class, AuthenticationManagerConfig.class, SecurityErrorHandlers.class, JwtService.class, DatabaseUserDetailsService.class, AuthService.class,
         GlobalExceptionHandler.class })
 @TestPropertySource(properties = {
         "app.security.jwt.secret=" + SecurityIntegrationTest.SECRET,
@@ -90,10 +91,13 @@ class SecurityIntegrationTest {
 
     @Test
     void validTokenGrantsAccess() throws Exception {
+        given(userRepository.findByEmail("user@example.com"))
+                .willReturn(Optional.of(new User("Ada", "Lovelace", "user@example.com", "x", Role.CUSTOMER)));
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", bearer(Role.CUSTOMER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("user@example.com"))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_CUSTOMER"));
+                .andExpect(jsonPath("$.role").value("CUSTOMER"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
 
     @Test
@@ -128,7 +132,7 @@ class SecurityIntegrationTest {
 
     @Test
     void customerCannotReachAdminEndpoint() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/ping").header("Authorization", bearer(Role.CUSTOMER)))
+        mockMvc.perform(get("/api/v1/admin/test").header("Authorization", bearer(Role.CUSTOMER)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.message").value("Access is denied"));
@@ -136,13 +140,13 @@ class SecurityIntegrationTest {
 
     @Test
     void adminCanReachAdminEndpoint() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/ping").header("Authorization", bearer(Role.ADMIN)))
+        mockMvc.perform(get("/api/v1/admin/test").header("Authorization", bearer(Role.ADMIN)))
                 .andExpect(status().isOk());
     }
 
     @Test
     void adminEndpointWithoutTokenIs401() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/ping")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/test")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -154,25 +158,29 @@ class SecurityIntegrationTest {
     void loginWithValidCredentialsReturnsUsableToken() throws Exception {
         String hash = passwordEncoder.encode("s3cret-pass");
         given(userRepository.findByEmail("user@example.com"))
-                .willReturn(Optional.of(new User("User@Example.com", hash, Role.CUSTOMER)));
+                .willReturn(Optional.of(new User("Ada", "Lovelace", "User@Example.com", hash, Role.CUSTOMER)));
 
         String body = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"User@Example.com\",\"password\":\"s3cret-pass\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(300))
+                .andExpect(jsonPath("$.user.email").value("user@example.com"))
+                .andExpect(jsonPath("$.user.firstName").value("Ada"))
+                .andExpect(jsonPath("$.user.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.user.password").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         String token = com.jayway.jsonpath.JsonPath.read(body, "$.accessToken");
 
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_CUSTOMER"));
+                .andExpect(jsonPath("$.role").value("CUSTOMER"));
     }
 
     @Test
     void loginFailuresAreIndistinguishable() throws Exception {
         given(userRepository.findByEmail("user@example.com"))
-                .willReturn(Optional.of(new User("user@example.com", passwordEncoder.encode("right"), Role.CUSTOMER)));
+                .willReturn(Optional.of(new User("Ada", "Lovelace", "user@example.com", passwordEncoder.encode("right"), Role.CUSTOMER)));
         given(userRepository.findByEmail("nobody@example.com")).willReturn(Optional.empty());
 
         String wrongPassword = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -194,6 +202,70 @@ class SecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    private static final String VALID_REGISTRATION =
+            "{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"email\":\"Ada@Example.com\",\"password\":\"s3cret-pass\"}";
+
+    @Test
+    void registrationCreatesCustomerWithHashedPasswordAndHidesIt() throws Exception {
+        given(userRepository.existsByEmail("ada@example.com")).willReturn(false);
+        given(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class)))
+                .willAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REGISTRATION))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("ada@example.com"))
+                .andExpect(jsonPath("$.role").value("CUSTOMER"))
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+        org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
+        org.mockito.Mockito.verify(userRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getPasswordHash()).startsWith("$2").doesNotContain("s3cret-pass");
+        assertThat(passwordEncoder.matches("s3cret-pass", saved.getValue().getPasswordHash())).isTrue();
+        assertThat(saved.getValue().getRole()).isEqualTo(Role.CUSTOMER);
+    }
+
+    @Test
+    void registrationCannotSelfAssignAdminRole() throws Exception {
+        given(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class)))
+                .willAnswer(inv -> inv.getArgument(0));
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REGISTRATION.replace("}", ",\"role\":\"ADMIN\"}")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+    }
+
+    @Test
+    void duplicateEmailRegistrationIs409() throws Exception {
+        given(userRepository.existsByEmail("ada@example.com")).willReturn(true);
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REGISTRATION))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Email is already registered"));
+        org.mockito.Mockito.verify(userRepository, org.mockito.Mockito.never())
+                .saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void concurrentDuplicateRegistrationIs409() throws Exception {
+        given(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class)))
+                .willThrow(new org.springframework.dao.DataIntegrityViolationException("uq_users_email"));
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REGISTRATION))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void invalidRegistrationIs400WithoutEchoingValues() throws Exception {
+        String body = mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"firstName\":\"\",\"lastName\":\"L\",\"email\":\"not-an-email\",\"password\":\"short\"}"))
+                .andExpect(status().isBadRequest())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("firstName", "email", "password")
+                .doesNotContain("not-an-email").doesNotContain("short\"");
     }
 
     @Test

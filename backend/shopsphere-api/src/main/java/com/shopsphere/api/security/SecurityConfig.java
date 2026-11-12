@@ -41,7 +41,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
  * Stateless, bearer-token security for the API.
  *
  * <p>Public: {@code GET /api/v1/health}, {@code /actuator/health/**},
- * {@code POST /api/v1/auth/login}. {@code /api/v1/admin/**} requires
+ * {@code POST /api/v1/auth/login}, {@code POST /api/v1/auth/register}. {@code /api/v1/admin/**} requires
  * {@code ROLE_ADMIN}. Everything else requires a valid JWT.
  *
  * <p>CSRF is disabled because no cookies/sessions are used: credentials are
@@ -65,7 +65,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(rs -> rs

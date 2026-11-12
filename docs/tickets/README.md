@@ -10,5 +10,6 @@ to verify it, and what was deliberately left out.
 | P1-T03 | Docker Local Infrastructure Foundation | `d2dc346` | [P1-T03](P1-T03-docker-infrastructure.md) |
 | P1-T04 | PostgreSQL + Flyway Database Foundation | `8718e11` | [P1-T04](P1-T04-postgresql-flyway.md) |
 | P1-T05 | Spring Boot Core | `c38e1d5` | [P1-T05](P1-T05-spring-boot-core.md) |
+| P1-T06 | Security (Spring Security + JWT) | `b0ada66` + follow-up (uncommitted) | [P1-T06](P1-T06-security.md) |
 
-Next: P1-T06 (Security) - not started.
+Next: P1-T07 - not started.
